@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voting DApp</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #f1f5f9;
+            text-align: center;
+            padding: 50px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 450px;
+            margin: auto;
+        }
+
+        button {
+            padding: 12px 20px;
+            margin: 10px;
+            background: #164DC2;
+            color: white;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>Voting DApp</h1>
+    <p>Decentralized Voting Application</p>
+
+    <button onclick="connectWallet()">Connect Wallet</button>
+    <p id="account">Wallet not connected</p>
+
+    <hr>
+
+    <h3>Vote for a Candidate</h3>
+
+    <button onclick="vote(0)">Vote Alice</button>
+    <button onclick="vote(1)">Vote Bob</button>
+    <button onclick="vote(2)">Vote Charlie</button>
+
+    <h3>Vote Results</h3>
+    <p id="results">Connect your wallet first.</p>
+
+    <p id="status"></p>
+</div>
+
+<script>
+const contractAddress = "0x681f395233361D1fC876436495aac5Ea535b303c";
+
+const abi = [
+    "function getCandidateCount() view returns (uint256)",
+    "function getCandidateName(uint256) view returns (string)",
+    "function vote(uint256)",
+    "function getVotes(uint256) view returns (uint256)"
+];
+
+let contract;
+
+async function connectWallet() {
+    try {
+        if (!window.ethereum) {
+            alert("Please install MetaMask");
+            return;
+        }
+
+        await window.ethereum.request({
+            method: "eth_requestAccounts"
+        });
+
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+
+        contract = new ethers.Contract(
+            contractAddress, abi, signer
+        );
+
+        document.getElementById("account").innerText =
+            "Connected: " + await signer.getAddress();
+
+        await loadResults();
+
+    } catch (error) {
+        document.getElementById("status").innerText =
+            error.message;
+    }
+}
+
+async function vote(index) {
+    try {
+        if (!contract) {
+            alert("Connect your wallet first");
+            return;
+        }
+
+        document.getElementById("status").innerText =
+            "Waiting for transaction...";
+
+        const tx = await contract.vote(index);
+        await tx.wait();
+
+        document.getElementById("status").innerText =
+            "Vote submitted successfully!";
+
+        await loadResults();
+
+    } catch (error) {
+        document.getElementById("status").innerText =
+            error.shortMessage || error.message;
+    }
+}
+
+async function loadResults() {
+    try {
+        let output = "";
+
+        const count = await contract.getCandidateCount();
+
+        for (let i = 0; i < count; i++) {
+            const name = await contract.getCandidateName(i);
+            const votes = await contract.getVotes(i);
+
+            output += name + ": " + votes + " votes<br>";
+        }
+
+        document.getElementById("results").innerHTML =
+            output;
+
+    } catch (error) {
+        document.getElementById("status").innerText =
+            error.message;
+    }
+}
+</script>
+
+</body>
+</html>
